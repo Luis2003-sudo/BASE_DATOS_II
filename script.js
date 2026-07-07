@@ -49,7 +49,7 @@ trabajoForm.addEventListener('submit',async e=>{
     archivo_url=urlData.publicUrl;
   }
 
-  const {error}=await sb.from('trabajos').insert({
+  const {data:insertado,error}=await sb.from('trabajos').insert({
     titulo:$('titulo').value,
     curso:$('curso').value,
     categoria:$('categoria').value,
@@ -59,15 +59,19 @@ trabajoForm.addEventListener('submit',async e=>{
     autor:$('autor').value||'Estudiante',
     archivo_nombre,
     archivo_url
-  });
+  }).select();
 
   btn.disabled=false;btn.textContent=textoOriginal;
 
   if(error){alert('Error al guardar el trabajo: '+error.message);return;}
 
+  if(insertado&&insertado.length){
+    trabajos.unshift(insertado[0]);
+    renderizarTodo();
+  }
+
   trabajoForm.reset();
   $('autor').value='JOSE LUIS ESPINAL HUAMAN';
-  await cargarTrabajos();
   alert('Trabajo guardado correctamente. Ya es visible para todos.');
 });
 
@@ -102,7 +106,8 @@ async function eliminarTrabajo(id){
   if(!confirm('¿Seguro que quieres eliminar este trabajo? Esta acción no se puede deshacer.'))return;
   const {error}=await sb.from('trabajos').delete().eq('id',id);
   if(error){alert('Error al eliminar: '+error.message);return;}
-  await cargarTrabajos();
+  trabajos=trabajos.filter(t=>t.id!==id);
+  renderizarTodo();
 }
 
 function filtrarPorSemana(u,s){filtroUnidad.value=String(u);filtroSemana.value=String(s);renderizarTrabajos();document.querySelector('.works-section').scrollIntoView({behavior:'smooth'})}
