@@ -120,4 +120,4 @@ function verTrabajo(id){
 
 buscar.oninput=renderizarTrabajos;filtroCategoria.onchange=renderizarTrabajos;filtroUnidad.onchange=renderizarTrabajos;filtroSemana.onchange=renderizarTrabajos;limpiarFiltros.onclick=()=>{buscar.value='';filtroCategoria.value='Todos';filtroUnidad.value='Todas';filtroSemana.value='Todas';renderizarTrabajos()};
 
-localStorage.getItem('usuarioCampusHTML')?mostrarApp():mostrarLogin();
+mostrarApp();
