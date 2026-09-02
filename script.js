@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
-const loginPage=$('loginPage'),appPage=$('appPage'),loginForm=$('loginForm'),trabajoForm=$('trabajoForm'),btnAdmin=$('btnAdmin'),adminLoginPage=$('adminLoginPage'),adminLoginForm=$('adminLoginForm'),adminUsuario=$('adminUsuario'),adminPassword=$('adminPassword'),btnCancelarAdmin=$('btnCancelarAdmin'),adminPage=$('adminPage'),btnVolver=$('btnVolver'),adminForm=$('adminForm'),adminUnidad=$('adminUnidad'),adminSemana=$('adminSemana'),adminTexto=$('adminTexto'),adminContenidoLista=$('adminContenidoLista'),trabajosContainer=$('trabajosContainer'),unidadesContainer=$('unidadesContainer'),totalTrabajos=$('totalTrabajos'),emptyMessage=$('emptyMessage'),buscar=$('buscar'),filtroUnidad=$('filtroUnidad'),filtroSemana=$('filtroSemana'),limpiarFiltros=$('limpiarFiltros'),btnVerTareas=$('btnVerTareas'),btnMiPerfil=$('btnMiPerfil');
-const usuarioCorrecto='P01898G@upla.edu.pe',passwordCorrecto='joseespinal_2003',adminCorrecto='admin@campus.com',passwordAdminCorrecto='admin_2003';
+const appPage=$('appPage'),trabajoForm=$('trabajoForm'),btnAdmin=$('btnAdmin'),adminLoginPage=$('adminLoginPage'),adminLoginForm=$('adminLoginForm'),adminUsuario=$('adminUsuario'),adminPassword=$('adminPassword'),btnCancelarAdmin=$('btnCancelarAdmin'),adminPage=$('adminPage'),btnVolver=$('btnVolver'),adminForm=$('adminForm'),adminUnidad=$('adminUnidad'),adminSemana=$('adminSemana'),adminTexto=$('adminTexto'),adminContenidoLista=$('adminContenidoLista'),trabajosContainer=$('trabajosContainer'),unidadesContainer=$('unidadesContainer'),totalTrabajos=$('totalTrabajos'),emptyMessage=$('emptyMessage'),buscar=$('buscar'),filtroUnidad=$('filtroUnidad'),filtroSemana=$('filtroSemana'),limpiarFiltros=$('limpiarFiltros'),btnVerTareas=$('btnVerTareas'),btnMiPerfil=$('btnMiPerfil');
+const adminCorrecto='admin@campus.com',passwordAdminCorrecto='admin_2003';
 
 const SUPABASE_URL='https://uxaxkbadbuugteinbepc.supabase.co';
 const SUPABASE_KEY='sb_publishable_IGQGQSn8uL21h6XiHV3jOQ_Jbe42vZR';
@@ -20,9 +20,7 @@ function semanaGlobal(u,s){return(Number(u)-1)*4+Number(s)}
 function clave(u,s){return`unidad_${u}_semana_${s}`}
 function textoSemana(u,s){return textosSemanas[clave(u,s)]||''}
 function guardarTextos(){localStorage.setItem('textosSemanasCampus',JSON.stringify(textosSemanas))}
-function mostrarApp(){loginPage.classList.add('hidden');adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()}
-function mostrarLogin(){appPage.classList.add('hidden');adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');loginPage.classList.remove('hidden')}
-loginForm.addEventListener('submit',e=>{e.preventDefault();let c=$('correo').value.trim(),p=$('password').value.trim();if(c===usuarioCorrecto&&p===passwordCorrecto){localStorage.setItem('usuarioCampusHTML',c);mostrarApp()}else alert('Correo o contraseña incorrectos. Inténtalo nuevamente.')});
+function mostrarApp(){adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()}
 btnAdmin.onclick=()=>{appPage.classList.add('hidden');adminLoginPage.classList.remove('hidden')};btnCancelarAdmin.onclick=()=>{adminLoginPage.classList.add('hidden');appPage.classList.remove('hidden')};btnVolver.onclick=()=>{adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()};btnVerTareas.onclick=()=>document.querySelector('.works-section').scrollIntoView({behavior:'smooth'});btnMiPerfil.onclick=()=>document.querySelector('#perfilSection').scrollIntoView({behavior:'smooth'});
 adminLoginForm.addEventListener('submit',e=>{e.preventDefault();if(adminUsuario.value.trim()===adminCorrecto&&adminPassword.value.trim()===passwordAdminCorrecto){adminLoginPage.classList.add('hidden');adminPage.classList.remove('hidden');adminUsuario.value='';adminPassword.value='';renderizarPanelAdmin()}else alert('Usuario o contraseña de admin incorrectos.')});
 
@@ -52,7 +50,7 @@ trabajoForm.addEventListener('submit',async e=>{
   const {data:insertado,error}=await sb.from('trabajos').insert({
     titulo:$('titulo').value,
     curso:$('curso').value,
-    categoria:$('categoria').value,
+    categoria:'Proyectos',
     unidad:Number($('unidad').value),
     semana:Number($('semana').value),
     descripcion:$('descripcion').value||'Sin descripción.',
