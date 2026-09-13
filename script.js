@@ -9,8 +9,10 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let trabajos=[];
 let textosSemanas=JSON.parse(localStorage.getItem('textosSemanasCampus'))||{};
 
+if($('archivo'))$('archivo').setAttribute('multiple','multiple');
+
 async function cargarTrabajos(){
-  const {data,error}=await sb.from('trabajos').select('*').order('fecha',{ascending:false});
+  const {data,error}=await sb.from('trabajos').select('*, trabajo_archivos(*)').order('fecha',{ascending:false});
   if(error){console.error('Error al cargar trabajos:',error);return;}
   trabajos=data||[];
   renderizarTodo();
@@ -30,23 +32,6 @@ trabajoForm.addEventListener('submit',async e=>{
   const textoOriginal=btn.textContent;
   btn.disabled=true;btn.textContent='Guardando...';
 
-  let archivo_nombre=null,archivo_url=null;
-  const a=$('archivo');
-  if(a.files.length){
-    const file=a.files[0];
-    const nombreLimpio=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-    const ruta=`${Date.now()}_${nombreLimpio}`;
-    const {error:errorSubida}=await sb.storage.from('trabajos').upload(ruta,file);
-    if(errorSubida){
-      alert('Error al subir el archivo: '+errorSubida.message);
-      btn.disabled=false;btn.textContent=textoOriginal;
-      return;
-    }
-    const {data:urlData}=sb.storage.from('trabajos').getPublicUrl(ruta);
-    archivo_nombre=file.name;
-    archivo_url=urlData.publicUrl;
-  }
-
   const {data:insertado,error}=await sb.from('trabajos').insert({
     titulo:$('titulo').value,
     curso:$('curso').value,
@@ -54,19 +39,44 @@ trabajoForm.addEventListener('submit',async e=>{
     unidad:Number($('unidad').value),
     semana:Number($('semana').value),
     descripcion:$('descripcion').value||'Sin descripción.',
-    autor:$('autor').value||'Estudiante',
-    archivo_nombre,
-    archivo_url
+    autor:$('autor').value||'Estudiante'
   }).select();
+
+  if(error){
+    btn.disabled=false;btn.textContent=textoOriginal;
+    alert('Error al guardar el trabajo: '+error.message);
+    return;
+  }
+
+  const nuevoTrabajo=insertado[0];
+  nuevoTrabajo.trabajo_archivos=[];
+
+  const a=$('archivo');
+  if(a.files.length){
+    for(const file of a.files){
+      const nombreLimpio=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+      const ruta=`${nuevoTrabajo.id}/${Date.now()}_${nombreLimpio}`;
+      const {error:errorSubida}=await sb.storage.from('trabajos').upload(ruta,file);
+      if(errorSubida){
+        alert('Error al subir "'+file.name+'": '+errorSubida.message);
+        continue;
+      }
+      const {data:urlData}=sb.storage.from('trabajos').getPublicUrl(ruta);
+      const {data:archivoInsertado,error:errorArchivo}=await sb.from('trabajo_archivos').insert({
+        trabajo_id:nuevoTrabajo.id,
+        nombre:file.name,
+        url:urlData.publicUrl
+      }).select();
+      if(!errorArchivo&&archivoInsertado&&archivoInsertado.length){
+        nuevoTrabajo.trabajo_archivos.push(archivoInsertado[0]);
+      }
+    }
+  }
 
   btn.disabled=false;btn.textContent=textoOriginal;
 
-  if(error){alert('Error al guardar el trabajo: '+error.message);return;}
-
-  if(insertado&&insertado.length){
-    trabajos.unshift(insertado[0]);
-    renderizarTodo();
-  }
+  trabajos.unshift(nuevoTrabajo);
+  renderizarTodo();
 
   trabajoForm.reset();
   $('autor').value='JOSE LUIS ESPINAL HUAMAN';
@@ -77,6 +87,14 @@ adminForm.addEventListener('submit',e=>{e.preventDefault();let u=Number(adminUni
 
 function filtrados(){let tx=buscar.value.toLowerCase(),u=filtroUnidad.value,s=filtroSemana.value;return trabajos.filter(t=>`${t.titulo} ${t.curso} ${t.descripcion} ${t.autor}`.toLowerCase().includes(tx)&&(u==='Todas'||Number(t.unidad)===Number(u))&&(s==='Todas'||Number(t.semana)===Number(s)))}
 
+function archivosDe(t){
+  const lista=Array.isArray(t.trabajo_archivos)?[...t.trabajo_archivos]:[];
+  if(t.archivo_url&&!lista.some(f=>f.url===t.archivo_url)){
+    lista.unshift({nombre:t.archivo_nombre||'archivo',url:t.archivo_url});
+  }
+  return lista;
+}
+
 function renderizarTrabajos(){
   let arr=filtrados();
   trabajosContainer.innerHTML='';
@@ -85,9 +103,11 @@ function renderizarTrabajos(){
   arr.forEach(t=>{
     let sg=semanaGlobal(t.unidad,t.semana),txt=textoSemana(t.unidad,t.semana);
     let fechaCorta=t.fecha?String(t.fecha).slice(0,10):'';
+    let archivos=archivosDe(t);
+    let etiquetaArchivo=archivos.length?`🏷️ ${archivos.length} archivo${archivos.length>1?'s':''} adjunto${archivos.length>1?'s':''}`:'🏷️ Sin archivo adjunto';
     let card=document.createElement('article');
     card.className='work-card';
-    card.innerHTML=`<div class="work-top"><div class="file-icon">📄</div><span class="category">${t.categoria}</span></div><h3>${t.titulo}</h3><p>📘 ${t.curso}</p><p>📚 Unidad ${t.unidad} - Semana ${sg}</p><p>👤 ${t.autor}</p><p>🗓️ ${fechaCorta}</p>${txt?`<p class="week-content-card">📝 ${txt}</p>`:''}<p class="description">${t.descripcion}</p><div class="file-name">🏷️ ${t.archivo_nombre||'Sin archivo adjunto'}</div><div class="work-actions"><button class="btn-light" onclick="verTrabajo(${t.id})">Ver</button><button class="btn-danger" onclick="eliminarTrabajo(${t.id})">Eliminar</button></div>`;
+    card.innerHTML=`<div class="work-top"><div class="file-icon">📄</div><span class="category">${t.categoria}</span></div><h3>${t.titulo}</h3><p>📘 ${t.curso}</p><p>📚 Unidad ${t.unidad} - Semana ${sg}</p><p>👤 ${t.autor}</p><p>🗓️ ${fechaCorta}</p>${txt?`<p class="week-content-card">📝 ${txt}</p>`:''}<p class="description">${t.descripcion}</p><div class="file-name">${etiquetaArchivo}</div><div class="work-actions"><button class="btn-light" onclick="verTrabajo(${t.id})">Ver</button><button class="btn-danger" onclick="eliminarTrabajo(${t.id})">Eliminar</button></div>`;
     trabajosContainer.appendChild(card)
   })
 }
@@ -102,6 +122,13 @@ function renderizarTodo(){totalTrabajos.textContent=trabajos.length;renderizarUn
 
 async function eliminarTrabajo(id){
   if(!confirm('¿Seguro que quieres eliminar este trabajo? Esta acción no se puede deshacer.'))return;
+
+  const {data:listado}=await sb.storage.from('trabajos').list(String(id));
+  if(listado&&listado.length){
+    const rutas=listado.map(f=>`${id}/${f.name}`);
+    await sb.storage.from('trabajos').remove(rutas);
+  }
+
   const {error}=await sb.from('trabajos').delete().eq('id',id);
   if(error){alert('Error al eliminar: '+error.message);return;}
   trabajos=trabajos.filter(t=>t.id!==id);
@@ -110,10 +137,55 @@ async function eliminarTrabajo(id){
 
 function filtrarPorSemana(u,s){filtroUnidad.value=String(u);filtroSemana.value=String(s);renderizarTrabajos();document.querySelector('.works-section').scrollIntoView({behavior:'smooth'})}
 
+function inyectarEstilosModal(){
+  if($('modalTrabajosEstilos'))return;
+  const style=document.createElement('style');
+  style.id='modalTrabajosEstilos';
+  style.textContent=`
+    .modal-trabajos-overlay{position:fixed;inset:0;background:rgba(5,8,20,.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+    .modal-trabajos-caja{background:#12172b;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .modal-trabajos-caja h3{color:#fff;margin:0 0 4px;font-size:1.3rem}
+    .modal-trabajos-caja p.sub{color:#9aa3c7;margin:0 0 18px;font-size:.9rem}
+    .modal-trabajos-lista{display:flex;flex-direction:column;gap:10px}
+    .modal-trabajo-item{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px}
+    .modal-trabajo-item span{color:#e6e9f7;font-size:.92rem;word-break:break-word}
+    .modal-trabajo-item a{flex-shrink:0;background:#3b5bfd;color:#fff;text-decoration:none;padding:7px 14px;border-radius:8px;font-size:.85rem;font-weight:600}
+    .modal-trabajos-vacio{color:#9aa3c7;text-align:center;padding:20px 0}
+    .modal-trabajos-cerrar{margin-top:20px;width:100%;background:rgba(255,255,255,.08);color:#fff;border:none;padding:10px;border-radius:10px;cursor:pointer;font-weight:600}
+    .modal-trabajos-cerrar:hover{background:rgba(255,255,255,.15)}
+  `;
+  document.head.appendChild(style);
+}
+
+function cerrarModalTrabajos(){
+  const existente=$('modalTrabajosOverlay');
+  if(existente)existente.remove();
+}
+
 function verTrabajo(id){
   const t=trabajos.find(x=>x.id===id);
-  if(!t||!t.archivo_url){alert('Este trabajo no tiene un archivo adjunto.');return}
-  window.open(t.archivo_url,'_blank')
+  if(!t)return;
+  inyectarEstilosModal();
+  cerrarModalTrabajos();
+
+  const archivos=archivosDe(t);
+  const overlay=document.createElement('div');
+  overlay.id='modalTrabajosOverlay';
+  overlay.className='modal-trabajos-overlay';
+  overlay.onclick=(e)=>{if(e.target===overlay)cerrarModalTrabajos()};
+
+  const itemsHtml=archivos.length
+    ?archivos.map(f=>`<div class="modal-trabajo-item"><span>📎 ${f.nombre}</span><a href="${f.url}" target="_blank" rel="noopener">Ver</a></div>`).join('')
+    :`<div class="modal-trabajos-vacio">Este trabajo no tiene archivos adjuntos todavía.</div>`;
+
+  overlay.innerHTML=`<div class="modal-trabajos-caja">
+    <h3>${t.titulo}</h3>
+    <p class="sub">${t.curso} · Unidad ${t.unidad} - Semana ${semanaGlobal(t.unidad,t.semana)}</p>
+    <div class="modal-trabajos-lista">${itemsHtml}</div>
+    <button class="modal-trabajos-cerrar" onclick="cerrarModalTrabajos()">Cerrar</button>
+  </div>`;
+
+  document.body.appendChild(overlay);
 }
 
 buscar.oninput=renderizarTrabajos;filtroUnidad.onchange=renderizarTrabajos;filtroSemana.onchange=renderizarTrabajos;limpiarFiltros.onclick=()=>{buscar.value='';filtroUnidad.value='Todas';filtroSemana.value='Todas';renderizarTrabajos()};
