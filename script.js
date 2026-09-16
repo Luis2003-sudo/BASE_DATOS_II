@@ -10,6 +10,11 @@ let trabajos=[];
 let textosSemanas=JSON.parse(localStorage.getItem('textosSemanasCampus'))||{};
 let sesionAdminActiva=false;
 
+const NOMBRES_UNIDADES={1:'Unidad I: Arquitecturas de Bases de Datos y Configuración del Entorno Corporativo. Capacidad'};
+const NOMBRES_SEMANAS={'1_1':'Formulación del Proyecto y Selección de la Arquitectura','1_2':'Despliegue y Configuración de Motores de Datos (DBMS)','1_3':'Modelamiento Físico y Mecanismos de Integración','1_4':'Sustentación y Validación de la Infraestructura de Datos'};
+function nombreUnidad(u){return NOMBRES_UNIDADES[u]||`Unidad ${u}`}
+function nombreSemana(u,s){return NOMBRES_SEMANAS[`${u}_${s}`]||`Semana ${semanaGlobal(u,s)}`}
+
 if($('archivo'))$('archivo').setAttribute('multiple','multiple');
 
 async function cargarTrabajos(){
@@ -109,18 +114,18 @@ function renderizarTrabajos(){
     let etiquetaArchivo=archivos.length?`🏷️ ${archivos.length} archivo${archivos.length>1?'s':''} adjunto${archivos.length>1?'s':''}`:'🏷️ Sin archivo adjunto';
     let card=document.createElement('article');
     card.className='work-card';
-    card.innerHTML=`<div class="work-top"><div class="file-icon">📄</div><span class="category">${t.categoria}</span></div><h3>${t.titulo}</h3><p>📘 ${t.curso}</p><p>📚 Unidad ${t.unidad} - Semana ${sg}</p><p>👤 ${t.autor}</p><p>🗓️ ${fechaCorta}</p>${txt?`<p class="week-content-card">📝 ${txt}</p>`:''}<p class="description">${t.descripcion}</p><div class="file-name">${etiquetaArchivo}</div><div class="work-actions"><button class="btn-light" onclick="verTrabajo(${t.id})">Ver</button><button class="btn-danger" onclick="eliminarTrabajo(${t.id})">Eliminar</button></div>`;
+    card.innerHTML=`<div class="work-top"><div class="file-icon">📄</div><span class="category">${t.categoria}</span></div><h3>${t.titulo}</h3><p>📘 ${t.curso}</p><p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p><p>👤 ${t.autor}</p><p>🗓️ ${fechaCorta}</p>${txt?`<p class="week-content-card">📝 ${txt}</p>`:''}<p class="description">${t.descripcion}</p><div class="file-name">${etiquetaArchivo}</div><div class="work-actions"><button class="btn-light" onclick="verTrabajo(${t.id})">Ver</button><button class="btn-danger" onclick="eliminarTrabajo(${t.id})">Eliminar</button></div>`;
     trabajosContainer.appendChild(card)
   })
 }
 
-function renderizarUnidades(){unidadesContainer.innerHTML='';for(let u=1;u<=4;u++){let total=trabajos.filter(t=>Number(t.unidad)===u).length,html='';for(let s=1;s<=4;s++){let sg=semanaGlobal(u,s),cant=trabajos.filter(t=>Number(t.unidad)===u&&Number(t.semana)===s).length,txt=textoSemana(u,s),res=txt?txt.substring(0,45)+(txt.length>45?'...':''):'Sin texto';html+=`<button class="week-btn" onclick="filtrarPorSemana(${u},${s})"><span class="week-title">Semana ${sg}</span><strong>${cant}</strong><small>${res}</small></button>`}let div=document.createElement('div');div.className='unit-card';div.innerHTML=`<div class="unit-head"><h3>Unidad ${u}</h3><span>${total} trabajos</span></div><div class="weeks-grid">${html}</div>`;unidadesContainer.appendChild(div)}}
+function renderizarUnidades(){unidadesContainer.innerHTML='';for(let u=1;u<=4;u++){let total=trabajos.filter(t=>Number(t.unidad)===u).length,html='';for(let s=1;s<=4;s++){let cant=trabajos.filter(t=>Number(t.unidad)===u&&Number(t.semana)===s).length,txt=textoSemana(u,s),res=txt?txt.substring(0,45)+(txt.length>45?'...':''):'Sin texto';html+=`<button class="week-btn" onclick="filtrarPorSemana(${u},${s})"><span class="week-title">${nombreSemana(u,s)}</span><strong>${cant}</strong><small>${res}</small></button>`}let div=document.createElement('div');div.className='unit-card';div.innerHTML=`<div class="unit-head"><h3>${nombreUnidad(u)}</h3><span>${total} trabajos</span></div><div class="weeks-grid">${html}</div>`;unidadesContainer.appendChild(div)}}
 
-function renderizarPanelAdmin(){adminContenidoLista.innerHTML='';for(let u=1;u<=4;u++){let html='';for(let s=1;s<=4;s++){html+=`<div class="admin-week-item"><div><strong>Unidad ${u} - Semana ${semanaGlobal(u,s)}</strong><p>${textoSemana(u,s)||'Sin texto agregado todavía.'}</p></div><button class="btn-secondary btn-small" onclick="editarTextoSemana(${u},${s})">Editar</button></div>`}let div=document.createElement('div');div.className='admin-unit-block';div.innerHTML=`<h3>Unidad ${u}</h3>${html}`;adminContenidoLista.appendChild(div)}}
+function renderizarPanelAdmin(){adminContenidoLista.innerHTML='';for(let u=1;u<=4;u++){let html='';for(let s=1;s<=4;s++){html+=`<div class="admin-week-item"><div><strong>${nombreUnidad(u)} - ${nombreSemana(u,s)}</strong><p>${textoSemana(u,s)||'Sin texto agregado todavía.'}</p></div><button class="btn-secondary btn-small" onclick="editarTextoSemana(${u},${s})">Editar</button></div>`}let div=document.createElement('div');div.className='admin-unit-block';div.innerHTML=`<h3>${nombreUnidad(u)}</h3>${html}`;adminContenidoLista.appendChild(div)}}
 
 function editarTextoSemana(u,s){adminUnidad.value=String(u);adminSemana.value=String(s);adminTexto.value=textoSemana(u,s);adminTexto.focus()}
 
-function renderizarTodo(){totalTrabajos.textContent=trabajos.length;renderizarUnidades();renderizarTrabajos()}
+function renderizarTodo(){if(totalTrabajos)totalTrabajos.textContent=trabajos.length;renderizarUnidades();renderizarTrabajos()}
 
 async function eliminarTrabajo(id){
   if(!confirm('¿Seguro que quieres eliminar este trabajo? Esta acción no se puede deshacer.'))return;
@@ -300,7 +305,7 @@ function verTrabajo(id){
 
   overlay.innerHTML=`<div class="modal-trabajos-caja">
     ${tituloHtml}
-    <p class="sub">${t.curso} · Unidad ${t.unidad} - Semana ${semanaGlobal(t.unidad,t.semana)}</p>
+    <p class="sub">${t.curso} · ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
     <div class="modal-trabajos-lista">${itemsHtml}</div>
 
     ${seccionAgregarHtml}
