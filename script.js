@@ -8,6 +8,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 let trabajos=[];
 let textosSemanas=JSON.parse(localStorage.getItem('textosSemanasCampus'))||{};
+let sesionAdminActiva=false;
 
 if($('archivo'))$('archivo').setAttribute('multiple','multiple');
 
@@ -22,9 +23,10 @@ function semanaGlobal(u,s){return(Number(u)-1)*4+Number(s)}
 function clave(u,s){return`unidad_${u}_semana_${s}`}
 function textoSemana(u,s){return textosSemanas[clave(u,s)]||''}
 function guardarTextos(){localStorage.setItem('textosSemanasCampus',JSON.stringify(textosSemanas))}
+function escapeAttr(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function mostrarApp(){adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()}
 btnAdmin.onclick=()=>{appPage.classList.add('hidden');adminLoginPage.classList.remove('hidden')};btnCancelarAdmin.onclick=()=>{adminLoginPage.classList.add('hidden');appPage.classList.remove('hidden')};btnVolver.onclick=()=>{adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()};btnVerTareas.onclick=()=>document.querySelector('.works-section').scrollIntoView({behavior:'smooth'});btnMiPerfil.onclick=()=>document.querySelector('#perfilSection').scrollIntoView({behavior:'smooth'});
-adminLoginForm.addEventListener('submit',e=>{e.preventDefault();if(adminUsuario.value.trim()===adminCorrecto&&adminPassword.value.trim()===passwordAdminCorrecto){adminLoginPage.classList.add('hidden');adminPage.classList.remove('hidden');adminUsuario.value='';adminPassword.value='';renderizarPanelAdmin()}else alert('Usuario o contraseña de admin incorrectos.')});
+adminLoginForm.addEventListener('submit',e=>{e.preventDefault();if(adminUsuario.value.trim()===adminCorrecto&&adminPassword.value.trim()===passwordAdminCorrecto){sesionAdminActiva=true;adminLoginPage.classList.add('hidden');adminPage.classList.remove('hidden');adminUsuario.value='';adminPassword.value='';renderizarPanelAdmin()}else alert('Usuario o contraseña de admin incorrectos.')});
 
 trabajoForm.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -167,6 +169,11 @@ function inyectarEstilosModal(){
     .modal-btn-guardar{width:100%;background:#3b5bfd;color:#fff;border:none;padding:12px;border-radius:10px;cursor:pointer;font-weight:700;font-size:.95rem;margin-bottom:10px}
     .modal-btn-guardar:hover{background:#2f4be0}
     .modal-btn-guardar:disabled{opacity:.6;cursor:not-allowed}
+    .modal-titulo-editable{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+    .modal-titulo-input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;color:#fff;font-size:1.15rem;font-weight:700}
+    .modal-btn-guardar-titulo{flex-shrink:0;background:#3b5bfd;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem}
+    .modal-btn-guardar-titulo:hover{background:#2f4be0}
+    .modal-btn-guardar-titulo:disabled{opacity:.6;cursor:not-allowed}
   `;
   document.head.appendChild(style);
 }
@@ -185,6 +192,28 @@ function agregarFilaEnlaceModal(){
     <input type="url" placeholder="https://..." class="modal-enlace-url" />
     <button type="button" class="modal-enlace-quitar" onclick="this.parentElement.remove()">✕</button>`;
   cont.appendChild(fila);
+}
+
+async function guardarTituloTrabajo(id){
+  const input=$('modalTituloInput');
+  if(!input)return;
+  const nuevoTitulo=input.value.trim();
+  if(!nuevoTitulo){alert('El título no puede estar vacío.');return;}
+
+  const btn=document.querySelector('.modal-btn-guardar-titulo');
+  const textoOriginal=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+
+  const {error}=await sb.from('trabajos').update({titulo:nuevoTitulo}).eq('id',id);
+
+  if(btn){btn.disabled=false;btn.textContent=textoOriginal;}
+
+  if(error){alert('Error al guardar el título: '+error.message);return;}
+
+  const t=trabajos.find(x=>x.id===id);
+  if(t)t.titulo=nuevoTitulo;
+  renderizarTrabajos();
+  alert('Título actualizado correctamente.');
 }
 
 async function guardarMasATrabajo(id){
@@ -248,8 +277,15 @@ function verTrabajo(id){
     ?archivos.map(f=>`<div class="modal-trabajo-item"><span>📎 ${f.nombre}</span><a href="${f.url}" target="_blank" rel="noopener">Ver</a></div>`).join('')
     :`<div class="modal-trabajos-vacio">Este trabajo no tiene archivos adjuntos todavía.</div>`;
 
+  const tituloHtml=sesionAdminActiva
+    ?`<div class="modal-titulo-editable">
+        <input type="text" id="modalTituloInput" class="modal-titulo-input" value="${escapeAttr(t.titulo)}" />
+        <button type="button" class="modal-btn-guardar-titulo" onclick="guardarTituloTrabajo(${t.id})">Guardar</button>
+      </div>`
+    :`<h3>${t.titulo}</h3>`;
+
   overlay.innerHTML=`<div class="modal-trabajos-caja">
-    <h3>${t.titulo}</h3>
+    ${tituloHtml}
     <p class="sub">${t.curso} · Unidad ${t.unidad} - Semana ${semanaGlobal(t.unidad,t.semana)}</p>
     <div class="modal-trabajos-lista">${itemsHtml}</div>
 
