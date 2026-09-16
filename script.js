@@ -284,27 +284,31 @@ function verTrabajo(id){
       </div>`
     :`<h3>${t.titulo}</h3>`;
 
+  const seccionAgregarHtml=sesionAdminActiva
+    ?`<hr class="modal-trabajos-divisor" />
+      <h4 class="modal-agregar-titulo">Agregar más a este trabajo</h4>
+
+      <label class="modal-campo-label">Archivos</label>
+      <input type="file" id="modalNuevosArchivos" multiple class="modal-archivo-input" />
+
+      <label class="modal-campo-label">Enlaces</label>
+      <div id="modalEnlacesContainer"></div>
+      <button type="button" class="modal-btn-agregar-enlace" onclick="agregarFilaEnlaceModal()">+ Agregar enlace</button>
+
+      <button type="button" class="modal-btn-guardar" onclick="guardarMasATrabajo(${t.id})">Agregar a este trabajo</button>`
+    :'';
+
   overlay.innerHTML=`<div class="modal-trabajos-caja">
     ${tituloHtml}
     <p class="sub">${t.curso} · Unidad ${t.unidad} - Semana ${semanaGlobal(t.unidad,t.semana)}</p>
     <div class="modal-trabajos-lista">${itemsHtml}</div>
 
-    <hr class="modal-trabajos-divisor" />
-    <h4 class="modal-agregar-titulo">Agregar más a este trabajo</h4>
-
-    <label class="modal-campo-label">Archivos</label>
-    <input type="file" id="modalNuevosArchivos" multiple class="modal-archivo-input" />
-
-    <label class="modal-campo-label">Enlaces</label>
-    <div id="modalEnlacesContainer"></div>
-    <button type="button" class="modal-btn-agregar-enlace" onclick="agregarFilaEnlaceModal()">+ Agregar enlace</button>
-
-    <button type="button" class="modal-btn-guardar" onclick="guardarMasATrabajo(${t.id})">Agregar a este trabajo</button>
+    ${seccionAgregarHtml}
     <button class="modal-trabajos-cerrar" onclick="cerrarModalTrabajos()">Cerrar</button>
   </div>`;
 
   document.body.appendChild(overlay);
-  agregarFilaEnlaceModal();
+  if(sesionAdminActiva)agregarFilaEnlaceModal();
 }
 
 buscar.oninput=renderizarTrabajos;filtroUnidad.onchange=renderizarTrabajos;filtroSemana.onchange=renderizarTrabajos;limpiarFiltros.onclick=()=>{buscar.value='';filtroUnidad.value='Todas';filtroSemana.value='Todas';renderizarTrabajos()};
