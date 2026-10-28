@@ -92,7 +92,23 @@ trabajoForm.addEventListener('submit',async e=>{
 
 adminForm.addEventListener('submit',e=>{e.preventDefault();let u=Number(adminUnidad.value),s=Number(adminSemana.value);textosSemanas[clave(u,s)]=adminTexto.value.trim();guardarTextos();renderizarPanelAdmin();renderizarUnidades();alert('Texto guardado correctamente.')});
 
-function filtrados(){let tx=buscar.value.toLowerCase(),u=filtroUnidad.value,s=filtroSemana.value;return trabajos.filter(t=>`${t.titulo} ${t.curso} ${t.descripcion} ${t.autor}`.toLowerCase().includes(tx)&&(u==='Todas'||Number(t.unidad)===Number(u))&&(s==='Todas'||Number(t.semana)===Number(s)))}
+/* ===== NUEVO: llena el selector de semanas según la unidad (solo "Semana N") ===== */
+function cargarSemanasFiltro(u){
+  filtroSemana.innerHTML='<option>Todas</option>';
+  const unidades=(u==='Todas')?[1,2,3,4]:[Number(u)];
+  unidades.forEach(un=>{
+    for(let s=1;s<=4;s++){
+      const g=semanaGlobal(un,s);
+      const o=document.createElement('option');
+      o.value=g;
+      o.textContent=`Semana ${g}`;
+      filtroSemana.appendChild(o);
+    }
+  });
+}
+
+/* ===== CAMBIADO: ahora compara con la semana global (1 a 16) ===== */
+function filtrados(){let tx=buscar.value.toLowerCase(),u=filtroUnidad.value,s=filtroSemana.value;return trabajos.filter(t=>`${t.titulo} ${t.curso} ${t.descripcion} ${t.autor}`.toLowerCase().includes(tx)&&(u==='Todas'||Number(t.unidad)===Number(u))&&(s==='Todas'||semanaGlobal(t.unidad,t.semana)===Number(s)))}
 
 function archivosDe(t){
   const lista=Array.isArray(t.trabajo_archivos)?[...t.trabajo_archivos]:[];
@@ -143,7 +159,8 @@ async function eliminarTrabajo(id){
   renderizarTodo();
 }
 
-function filtrarPorSemana(u,s){filtroUnidad.value=String(u);filtroSemana.value=String(s);renderizarTrabajos();document.querySelector('.works-section').scrollIntoView({behavior:'smooth'})}
+/* ===== CAMBIADO: carga las semanas de la unidad y selecciona la semana global ===== */
+function filtrarPorSemana(u,s){filtroUnidad.value=String(u);cargarSemanasFiltro(String(u));filtroSemana.value=String(semanaGlobal(u,s));renderizarTrabajos();document.querySelector('.works-section').scrollIntoView({behavior:'smooth'})}
 
 function inyectarEstilosModal(){
   if($('modalTrabajosEstilos'))return;
@@ -317,6 +334,11 @@ function verTrabajo(id){
   if(sesionAdminActiva)agregarFilaEnlaceModal();
 }
 
-buscar.oninput=renderizarTrabajos;filtroUnidad.onchange=renderizarTrabajos;filtroSemana.onchange=renderizarTrabajos;limpiarFiltros.onclick=()=>{buscar.value='';filtroUnidad.value='Todas';filtroSemana.value='Todas';renderizarTrabajos()};
+/* ===== CAMBIADO: al cambiar de unidad se recargan las semanas ===== */
+buscar.oninput=renderizarTrabajos;
+filtroUnidad.onchange=()=>{cargarSemanasFiltro(filtroUnidad.value);renderizarTrabajos()};
+filtroSemana.onchange=renderizarTrabajos;
+limpiarFiltros.onclick=()=>{buscar.value='';filtroUnidad.value='Todas';cargarSemanasFiltro('Todas');filtroSemana.value='Todas';renderizarTrabajos()};
 
+cargarSemanasFiltro('Todas');
 mostrarApp();
