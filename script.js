@@ -178,13 +178,25 @@ function renderizarUnidades(){
     for(let s=1;s<=4;s++){
       const cant=trabajos.filter(t=>Number(t.unidad)===u&&Number(t.semana)===s).length;
       const txt=textoSemana(u,s);
-      semanas+=`<button class="week-btn"><span class="week-title">${nombreSemana(u,s)}</span><strong>${cant}</strong><small>${txt?txt:'Sin texto'}</small></button>`;
+      semanas+=`<button class="week-btn" data-u="${u}" data-s="${s}"><span class="week-title">${nombreSemana(u,s)}</span><strong>${cant}</strong><small>${txt?txt:'Sin texto'}</small></button>`;
     }
     const card=document.createElement('div');
     card.className='unit-card';
     card.innerHTML=`<div class="unit-head"><h3>${nombreUnidad(u)}</h3><span>${total} trabajo${total===1?'':'s'}</span></div><div class="weeks-grid">${semanas}</div>`;
     unidadesContainer.appendChild(card);
   }
+  unidadesContainer.querySelectorAll('.week-btn').forEach(b=>{
+    b.onclick=()=>irASemana(b.dataset.u,b.dataset.s);
+  });
+}
+
+function irASemana(u,s){
+  buscar.value='';
+  filtroUnidad.value=String(u);
+  cargarSemanasFiltro(String(u));
+  filtroSemana.value=String(semanaGlobal(u,s));
+  renderizarTrabajos();
+  document.querySelector('.works-section').scrollIntoView({behavior:'smooth'});
 }
 
 function renderizarTodo(){
