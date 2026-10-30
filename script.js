@@ -19,7 +19,7 @@ if($('archivo'))$('archivo').setAttribute('multiple','multiple');
 
 async function cargarTrabajos(){
   const {data,error}=await sb.from('trabajos').select('*, trabajo_archivos(*)').order('fecha',{ascending:false});
-  if(error){console.error('Error al cargar trabajos:',error);return;}
+  if(error){console.error('Error al cargar trabajos:',error);renderizarTodo();return;}
   trabajos=data||[];
   renderizarTodo();
 }
@@ -30,6 +30,7 @@ function textoSemana(u,s){return textosSemanas[clave(u,s)]||''}
 function guardarTextos(){localStorage.setItem('textosSemanasCampus',JSON.stringify(textosSemanas))}
 function escapeAttr(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function mostrarApp(){adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()}
+
 btnAdmin.onclick=()=>{appPage.classList.add('hidden');adminLoginPage.classList.remove('hidden')};
 btnCancelarAdmin.onclick=()=>{adminLoginPage.classList.add('hidden');appPage.classList.remove('hidden')};
 btnVolver.onclick=()=>{adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()};
@@ -114,9 +115,8 @@ adminForm.addEventListener('submit',e=>{
   alert('Texto guardado correctamente.');
 });
 
-/* ===== Llena el selector de semanas según la unidad ===== */
 function cargarSemanasFiltro(u){
-  filtroSemana.innerHTML='<option>Todas</option>';
+  filtroSemana.innerHTML='<option value="Todas">Todas</option>';
   const unidades=(u==='Todas')?[1,2,3,4]:[Number(u)];
   unidades.forEach(un=>{
     for(let s=1;s<=4;s++){
@@ -129,7 +129,6 @@ function cargarSemanasFiltro(u){
   });
 }
 
-/* ===== Filtros (semana global 1 a 16) ===== */
 function filtrados(){
   let tx=buscar.value.toLowerCase(),u=filtroUnidad.value,s=filtroSemana.value;
   return trabajos.filter(t=>
@@ -171,15 +170,15 @@ function renderizarUnidades(){
   unidadesContainer.innerHTML='';
   for(let u=1;u<=4;u++){
     const total=trabajos.filter(t=>Number(t.unidad)===u).length;
-    let html='';
+    let semanas='';
     for(let s=1;s<=4;s++){
       const cant=trabajos.filter(t=>Number(t.unidad)===u&&Number(t.semana)===s).length;
       const txt=textoSemana(u,s);
-      html+=`<div class="week-item"><strong>Semana ${semanaGlobal(u,s)}: ${nombreSemana(u,s)}</strong><br><small>${cant} trabajo(s)</small>${txt?`<p class="week-content">📝 ${txt}</p>`:''}</div>`;
+      semanas+=`<button class="week-btn"><span class="week-title">${nombreSemana(u,s)}</span><strong>${cant}</strong><small>${txt?txt:'Sin texto'}</small></button>`;
     }
-    const card=document.createElement('article');
+    const card=document.createElement('div');
     card.className='unit-card';
-    card.innerHTML=`<h3>${nombreUnidad(u)}</h3><p>${total} trabajo(s)</p>${html}`;
+    card.innerHTML=`<div class="unit-head"><h3>${nombreUnidad(u)}</h3><span>${total} trabajo${total===1?'':'s'}</span></div><div class="weeks-grid">${semanas}</div>`;
     unidadesContainer.appendChild(card);
   }
 }
@@ -187,7 +186,7 @@ function renderizarUnidades(){
 function renderizarTodo(){
   renderizarTrabajos();
   renderizarUnidades();
-  totalTrabajos.textContent=trabajos.length;
+  if(totalTrabajos)totalTrabajos.textContent=trabajos.length;
 }
 
 function verTrabajo(id){
@@ -263,7 +262,6 @@ function renderizarPanelAdmin(){
   });
 }
 
-/* ===== Eventos de filtros e inicio ===== */
 filtroUnidad.addEventListener('change',()=>{cargarSemanasFiltro(filtroUnidad.value);renderizarTrabajos()});
 filtroSemana.addEventListener('change',renderizarTrabajos);
 buscar.addEventListener('input',renderizarTrabajos);
@@ -276,4 +274,4 @@ limpiarFiltros.addEventListener('click',()=>{
 });
 
 cargarSemanasFiltro('Todas');
-cargarTrabajos();
+mostrarApp();
