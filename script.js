@@ -205,47 +205,72 @@ function renderizarTodo(){
   if(totalTrabajos)totalTrabajos.textContent=trabajos.length;
 }
 
+function iconoArchivo(nombre){
+  const e=String(nombre).split('.').pop().toLowerCase();
+  if(e==='pdf')return'📕';
+  if(['png','jpg','jpeg','gif','webp'].includes(e))return'🖼️';
+  if(['doc','docx'].includes(e))return'📘';
+  if(['xls','xlsx','csv'].includes(e))return'📗';
+  if(['ppt','pptx'].includes(e))return'📙';
+  if(['sql','txt'].includes(e))return'🗄️';
+  if(['zip','rar','7z'].includes(e))return'🗜️';
+  return'📄';
+}
+
 function verTrabajo(id){
   const t=trabajos.find(x=>Number(x.id)===Number(id));
   if(!t)return;
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  ov.className='modal-ov';
   const caja=document.createElement('div');
-  caja.style.cssText='background:#111827;color:#fff;border-radius:14px;padding:24px;max-width:560px;width:100%;max-height:85vh;overflow:auto';
+  caja.className='modal-box';
   ov.appendChild(caja);
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});
-  const est='width:100%;padding:10px;margin:6px 0 12px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#fff;font:inherit;box-sizing:border-box';
 
   function pintar(){
     const admin=sesionAdminActiva;
     const archivos=archivosDe(t);
+    const fecha=t.fecha?String(t.fecha).slice(0,10):'';
     const lista=archivos.length
-      ?archivos.map(f=>`<li style="margin-bottom:6px"><a href="${escapeAttr(f.url)}" target="_blank" rel="noopener" style="color:#60a5fa">${f.nombre}</a>${admin&&f.id?` <button class="btn-danger" data-del="${f.id}" style="padding:2px 8px">✕</button>`:''}</li>`).join('')
-      :'<li>Sin archivos adjuntos</li>';
+      ?archivos.map(f=>`<div class="m-row"><a class="m-file" href="${escapeAttr(f.url)}" target="_blank" rel="noopener"><span class="m-ico">${iconoArchivo(f.nombre)}</span><span class="m-name">${f.nombre}</span><span class="m-open">Abrir ↗</span></a>${admin&&f.id?`<button class="m-del" data-del="${f.id}" title="Quitar archivo">✕</button>`:''}</div>`).join('')
+      :'<div class="m-empty">Sin archivos adjuntos</div>';
+
+    const meta=`<div class="m-meta">
+      <div><span>Curso</span>${t.curso}</div>
+      <div><span>Semana</span>Semana ${semanaGlobal(t.unidad,t.semana)}</div>
+      <div class="full"><span>Unidad</span>${nombreUnidad(t.unidad)} · ${nombreSemana(t.unidad,t.semana)}</div>
+      <div><span>Autor</span>${t.autor}</div>
+      <div><span>Fecha</span>${fecha}</div>
+    </div>`;
 
     caja.innerHTML=admin
-      ?`<h2>Editar trabajo</h2>
-        <label>Título</label>
-        <input id="vTitulo" style="${est}" value="${escapeAttr(t.titulo)}">
-        <p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
-        <label>Descripción</label>
-        <textarea id="vDesc" rows="4" style="${est}">${t.descripcion||''}</textarea>
-        <h4>Archivos</h4><ul>${lista}</ul>
-        <label>Agregar archivos</label>
-        <input id="vArchivos" type="file" multiple style="${est}">
-        <div style="display:flex;gap:10px;margin-top:10px">
-          <button class="btn-primary" id="vGuardar">Guardar cambios</button>
+      ?`<button class="m-close" id="vX">✕</button>
+        <span class="m-badge">✏️ MODO EDICIÓN</span>
+        <h2>Editar trabajo</h2>
+        ${meta}
+        <label class="m-label">Título</label>
+        <input id="vTitulo" class="m-input" value="${escapeAttr(t.titulo)}">
+        <label class="m-label">Descripción</label>
+        <textarea id="vDesc" rows="4" class="m-input">${t.descripcion||''}</textarea>
+        <h4 class="m-title">Archivos (${archivos.length})</h4>
+        <div class="m-files">${lista}</div>
+        <label class="m-label">Agregar archivos</label>
+        <input id="vArchivos" type="file" multiple class="m-input">
+        <div class="m-actions">
           <button class="btn-light" id="vCerrar">Cerrar</button>
+          <button class="btn-primary" id="vGuardar">Guardar cambios</button>
         </div>`
-      :`<h2>${t.titulo}</h2>
-        <p>📘 ${t.curso}</p>
-        <p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
-        <p>👤 ${t.autor}</p>
-        <p>${t.descripcion}</p>
-        <h4>Archivos</h4><ul>${lista}</ul>
-        <button class="btn-light" id="vCerrar">Cerrar</button>`;
+      :`<button class="m-close" id="vX">✕</button>
+        <span class="m-badge">📚 ${t.categoria||'Proyectos'}</span>
+        <h2>${t.titulo}</h2>
+        ${meta}
+        <p class="m-desc">${t.descripcion}</p>
+        <h4 class="m-title">Archivos (${archivos.length})</h4>
+        <div class="m-files">${lista}</div>
+        <div class="m-actions"><button class="btn-light" id="vCerrar">Cerrar</button></div>`;
 
     caja.querySelector('#vCerrar').onclick=()=>ov.remove();
+    caja.querySelector('#vX').onclick=()=>ov.remove();
     if(!admin)return;
 
     caja.querySelectorAll('[data-del]').forEach(b=>{
