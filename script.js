@@ -29,6 +29,10 @@ function clave(u,s){return`unidad_${u}_semana_${s}`}
 function textoSemana(u,s){return textosSemanas[clave(u,s)]||''}
 function guardarTextos(){localStorage.setItem('textosSemanasCampus',JSON.stringify(textosSemanas))}
 function escapeAttr(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function rutaDeUrl(url){
+  const i=String(url).indexOf('/trabajos/');
+  return i>=0?decodeURIComponent(String(url).slice(i+10)):null;
+}
 function mostrarApp(){adminLoginPage.classList.add('hidden');adminPage.classList.add('hidden');appPage.classList.remove('hidden');cargarTrabajos()}
 
 btnAdmin.onclick=()=>{appPage.classList.add('hidden');adminLoginPage.classList.remove('hidden')};
@@ -192,24 +196,88 @@ function renderizarTodo(){
 function verTrabajo(id){
   const t=trabajos.find(x=>Number(x.id)===Number(id));
   if(!t)return;
-  const archivos=archivosDe(t);
-  const lista=archivos.length
-    ?archivos.map(f=>`<li><a href="${escapeAttr(f.url)}" target="_blank" rel="noopener" style="color:#60a5fa">${f.nombre}</a></li>`).join('')
-    :'<li>Sin archivos adjuntos</li>';
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
-  ov.innerHTML=`<div style="background:#111827;color:#fff;border-radius:14px;padding:24px;max-width:520px;width:100%;max-height:85vh;overflow:auto">
-    <h2>${t.titulo}</h2>
-    <p>📘 ${t.curso}</p>
-    <p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
-    <p>👤 ${t.autor}</p>
-    <p>${t.descripcion}</p>
-    <h4>Archivos</h4><ul>${lista}</ul>
-    <button class="btn-light" id="cerrarVer">Cerrar</button>
-  </div>`;
+  const caja=document.createElement('div');
+  caja.style.cssText='background:#111827;color:#fff;border-radius:14px;padding:24px;max-width:560px;width:100%;max-height:85vh;overflow:auto';
+  ov.appendChild(caja);
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});
+  const est='width:100%;padding:10px;margin:6px 0 12px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#fff;font:inherit;box-sizing:border-box';
+
+  function pintar(){
+    const admin=sesionAdminActiva;
+    const archivos=archivosDe(t);
+    const lista=archivos.length
+      ?archivos.map(f=>`<li style="margin-bottom:6px"><a href="${escapeAttr(f.url)}" target="_blank" rel="noopener" style="color:#60a5fa">${f.nombre}</a>${admin&&f.id?` <button class="btn-danger" data-del="${f.id}" style="padding:2px 8px">✕</button>`:''}</li>`).join('')
+      :'<li>Sin archivos adjuntos</li>';
+
+    caja.innerHTML=admin
+      ?`<h2>Editar trabajo</h2>
+        <label>Título</label>
+        <input id="vTitulo" style="${est}" value="${escapeAttr(t.titulo)}">
+        <p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
+        <label>Descripción</label>
+        <textarea id="vDesc" rows="4" style="${est}">${t.descripcion||''}</textarea>
+        <h4>Archivos</h4><ul>${lista}</ul>
+        <label>Agregar archivos</label>
+        <input id="vArchivos" type="file" multiple style="${est}">
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button class="btn-primary" id="vGuardar">Guardar cambios</button>
+          <button class="btn-light" id="vCerrar">Cerrar</button>
+        </div>`
+      :`<h2>${t.titulo}</h2>
+        <p>📘 ${t.curso}</p>
+        <p>📚 ${nombreUnidad(t.unidad)} - ${nombreSemana(t.unidad,t.semana)}</p>
+        <p>👤 ${t.autor}</p>
+        <p>${t.descripcion}</p>
+        <h4>Archivos</h4><ul>${lista}</ul>
+        <button class="btn-light" id="vCerrar">Cerrar</button>`;
+
+    caja.querySelector('#vCerrar').onclick=()=>ov.remove();
+    if(!admin)return;
+
+    caja.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick=async()=>{
+        if(!confirm('¿Quitar este archivo?'))return;
+        const fid=b.dataset.del;
+        const f=t.trabajo_archivos.find(x=>String(x.id)===String(fid));
+        if(f){const r=rutaDeUrl(f.url);if(r)await sb.storage.from('trabajos').remove([r]);}
+        const {error}=await sb.from('trabajo_archivos').delete().eq('id',fid);
+        if(error){alert('Error: '+error.message);return;}
+        t.trabajo_archivos=t.trabajo_archivos.filter(x=>String(x.id)!==String(fid));
+        pintar();renderizarTodo();
+      };
+    });
+
+    caja.querySelector('#vGuardar').onclick=async()=>{
+      const btn=caja.querySelector('#vGuardar');
+      btn.disabled=true;btn.textContent='Guardando...';
+      const titulo=caja.querySelector('#vTitulo').value.trim()||t.titulo;
+      const descripcion=caja.querySelector('#vDesc').value.trim()||'Sin descripción.';
+      const {error}=await sb.from('trabajos').update({titulo,descripcion}).eq('id',t.id);
+      if(error){alert('Error al guardar: '+error.message);btn.disabled=false;btn.textContent='Guardar cambios';return;}
+      t.titulo=titulo;t.descripcion=descripcion;
+
+      const files=caja.querySelector('#vArchivos').files;
+      for(const file of files){
+        const limpio=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+        const ruta=`${t.id}/${Date.now()}_${limpio}`;
+        const {error:eSub}=await sb.storage.from('trabajos').upload(ruta,file);
+        if(eSub){alert('Error al subir "'+file.name+'": '+eSub.message);continue;}
+        const {data:u}=sb.storage.from('trabajos').getPublicUrl(ruta);
+        const {data:ins,error:eIns}=await sb.from('trabajo_archivos').insert({trabajo_id:t.id,nombre:file.name,url:u.publicUrl}).select();
+        if(!eIns&&ins&&ins.length){
+          if(!Array.isArray(t.trabajo_archivos))t.trabajo_archivos=[];
+          t.trabajo_archivos.push(ins[0]);
+        }
+      }
+      pintar();renderizarTodo();
+      alert('Cambios guardados.');
+    };
+  }
+
+  pintar();
   document.body.appendChild(ov);
-  document.getElementById('cerrarVer').onclick=()=>ov.remove();
 }
 
 async function eliminarTrabajo(id){
@@ -217,10 +285,7 @@ async function eliminarTrabajo(id){
   if(!confirm('¿Eliminar este trabajo y sus archivos?'))return;
   const t=trabajos.find(x=>Number(x.id)===Number(id));
   if(t){
-    const rutas=archivosDe(t).map(f=>{
-      const i=String(f.url).indexOf('/trabajos/');
-      return i>=0?decodeURIComponent(String(f.url).slice(i+10)):null;
-    }).filter(Boolean);
+    const rutas=archivosDe(t).map(f=>rutaDeUrl(f.url)).filter(Boolean);
     if(rutas.length)await sb.storage.from('trabajos').remove(rutas);
   }
   await sb.from('trabajo_archivos').delete().eq('trabajo_id',id);
